@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - Bounce 3D</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				margin: 0px;
+				background-color: #000000;
+				overflow: hidden;
+			}
+		</style>
+		<link rel="stylesheet" href="css/style.css">
+	</head>
+	<body>
+
+		<script src="js/three.js"></script>
+		<script src="js/OrbitControls.js"></script>
+		<script src="js/Keyboard.js"></script>
+		<script>
+
+			var camera, scene, renderer, startTime, object, score = 0, noOfDiamonds = 20, noOfMines = 20,reasonEnd, time =0;
+
+			var diamonds = [];
+
+			var mines = [];
+
+			//Velocity in x, y and z directions
+			var velx = 0 , vely = 0, velz = 0, outOfBounds = false;
+
+			function init() {
+
+				camera = new THREE.PerspectiveCamera(
+						50, window.innerWidth / window.innerHeight, 0.25, 16 );
+
+				camera.position.set( 0, 3, 10);
+
+				scene = new THREE.Scene();
+				//scene.fog = new THREE.Fog( 0x72645b, 2, 15 );
+				
+				// Lights
+
+				scene.add( new THREE.AmbientLight( 0x505050 ) );
+
+				var spotLight = new THREE.SpotLight( 0xffffff );
+				spotLight.angle = Math.PI / 5;
+				spotLight.penumbra = 0.2;
+				spotLight.position.set( 6, 6, 6 );
+				spotLight.castShadow = true;
+				spotLight.shadow.camera.near = 3;
+				spotLight.shadow.camera.far = 10;
+				spotLight.shadow.mapSize.width = 1024;
+				spotLight.shadow.mapSize.height = 1024;
+				scene.add( spotLight );
+
+				// var pointLight = new THREE.PointLight( 0xffffff, 1, 200 );
+				// pointLight.position = camera.position;
+				// pointLight.castShadow = true;
+				// scene.add(pointLight);
+
+				var dirLight = new THREE.DirectionalLight( 0x55505a, 1 );
+				dirLight.position.set( 0, 3, 0 );
+				dirLight.castShadow = true;
+				dirLight.shadow.camera.near = 1;
+				dirLight.shadow.camera.far = 10;
+
+				dirLight.shadow.camera.right = 1;
+				dirLight.shadow.camera.left = - 1;
+				dirLight.shadow.camera.top	= 1;
+				dirLight.shadow.camera.bottom = - 1;
+
+				dirLight.shadow.mapSize.width = 1024;
+				dirLight.shadow.mapSize.height = 1024;
+				scene.add( dirLight );
+
+				// Geometry
+
+				var material = new THREE.MeshPhongMaterial( {
+						color: 0xbd2031,
+						shininess: 100,
+						side: THREE.DoubleSide
+
+					} ),
+
+					geometry = new THREE.SphereBufferGeometry( 0.2, 32, 32 );
+
+				object = new THREE.Mesh( geometry, material );
+				object.castShadow = true;
+				scene.add( object );
+				object.position.y = 0.2;
+
+				var ground = new THREE.Mesh(
+						new THREE.PlaneBufferGeometry( 9, 9, 1, 1 ),
+						new THREE.MeshPhongMaterial( {
+							color: 0xa0adaf, shininess: 150 } ) );
+				ground.rotation.x = - Math.PI / 2; // rotates X/Y to X/Z
+				ground.receiveShadow = true;
+				scene.add( ground );
+
+				for(i=0; i<noOfDiamonds;i++){
+					var diamond =  new THREE.Mesh(
+							new THREE.OctahedronGeometry(0.1,0),
+							new THREE.MeshPhongMaterial( {
+								color: 0x00ffff, shininess: 150 } ) );
+					//diamond.castShadow = true;
+
+					diamond.position.y = 0.6;
+					diamond.position.x = (Math.random() * (4.5 + 4.5) - 4.5).toFixed(1);
+					diamond.position.z = (Math.random() * (4.5 + 4.5) - 4.5).toFixed(1);
+					diamonds.push(diamond);
+					scene.add( diamond );
+				}
+
+				for(i=0; i<noOfMines;i++){
+					var mine =  new THREE.Mesh(
+							new THREE.ConeBufferGeometry( 0.1,0.1, 32 ),
+							new THREE.MeshPhongMaterial( {
+								color: 0x000000, shininess: 150 } ) );
+					
+
+					mine.position.y = 0.05;
+					mine.position.x = (Math.random() * (4.5 + 4.5) - 4.5).toFixed(1);
+					mine.position.z = (Math.random() * (4.5 + 4.5) - 4.5).toFixed(1);
+					mines.push(mine);
+					scene.add(mine);
+				}
+
+
+				// Renderer
+
+				renderer = new THREE.WebGLRenderer();
+				renderer.shadowMap.enabled = true;
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				window.addEventListener( 'resize', onWindowResize, false );
+				document.body.appendChild( renderer.domElement );
+
+				// Controls
+
+				var controls = new THREE.OrbitControls( camera, renderer.domElement );
+				controls.target.set( 0, 1, 0 );
+				controls.update();
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function animate() {
+
+				var currentTime = Date.now();
+
+				time = ( currentTime - startTime ) / 1000;
+
+				requestAnimationFrame( animate );
+
+				if(!outOfBounds){
+					move();
+				}
+				else{
+					fall();
+				}
+
+				renderer.render( scene, camera );
+				updateScoreTime();
+				checkTime() ;
+
+
+			}
+
+			function fall() {
+				object.position.y = object.position.y - 0.02;
+				var myElem = document.getElementById('EndScreen');
+				if (myElem === null){
+					reasonEnd = "You Fell down the Plank :(";
+					addEndScreen();
+				}
+			}
+
+			function move() {
+
+				object.position.x = object.position.x + velx;
+				object.position.y = object.position.y + vely;
+				object.position.z = object.position.z + velz;
+
+				checkCollision();
+
+				if(object.position.y <= 0.2)
+				{
+					object.position.y = 0.2;
+					vely = 0;
+				}
+
+				
+
+				//friction
+				if(velx > 0 )
+				{
+					velx -= 0.02;
+				}
+				else if(velx < 0 )
+				{
+					velx += 0.02;
+				}
+				if(velz > 0 )
+				{
+					velz -= 0.02;
+				}
+				else if(velz < 0 )
+				{
+					velz += 0.02;
+				}
+
+				//gravity
+
+				if( object.position.y > 0.2)
+				{
+					vely -= 0.01;
+				}
+				
+
+
+				//movement
+
+				if (Key.isDown(Key.A) && (velx >= 0))		
+				{
+					 velx -= 0.02 ;
+				}
+				if (Key.isDown(Key.W) && (velz >= 0))		
+				{
+					 velz -= 0.02 ;
+				}
+				if (Key.isDown(Key.S) && (velz <= 0))		
+				{
+					 velz += 0.02 ;
+				}
+				if (Key.isDown(Key.D) && (velx <= 0))		
+				{
+					 velx += 0.02;
+				}
+				if (Key.isDown(Key.SPACE))		
+				{
+					if(object.position.y <= 0.2){vely += 0.1;}
+				}
+
+				if(Math.abs(object.position.x) > 4.5 || Math.abs(object.position.z) > 4.5)
+				{
+					outOfBounds = true;
+					outOfBound();
+				}
+			}
+
+			function outOfBound () {
+
+				console.log("outOfBounds");
+
+			}
+
+			function checkCollision () {
+				for(i=0; i < diamonds.length; i++){
+					if(diamonds[i].position.distanceTo(object.position) <= 0.3){
+						scene.remove(diamonds[i]);
+						diamonds.splice(i,1);
+						score++;
+					}
+				}
+
+				for(i=0; i < mines.length; i++){
+					if(mines[i].position.distanceTo(object.position) <= 0.3){
+						object.position.y = object.position.y - 0.02;
+						var myElem = document.getElementById('EndScreen');
+						if (myElem === null){
+							reasonEnd = "You hit a land mine :(";
+							addEndScreen();
+						}
+					}
+				}
+				
+			}
+
+			function addStartScreen () {
+				var div = document.createElement('div');
+				div.classList.add("overlay");
+				div.id = "StartScreen";
+				div.innerHTML = '<div class="bounce">Bounce 3D</div><div align="center"><a type="button" href="#0" class="bttn" id="strt" >Start Game</a></div><div class="instructions">Instructions: <br /> <br />- Use A W S D to move the ball. <br /> - Use SPACE to bounce ball. <br /> - Do not fall off the plank. <br /> - Collect diamonds to increase score. <br /> - Beware of land mines.<br /> - Use Arrow keys and mouse to pan camera.<br /></div>';
+				document.body.appendChild(div);
+				document.getElementById('strt').onclick = function() {
+    				removeStartScreen();
+				}
+			}
+
+			function removeStartScreen () {
+		
+				var element = document.getElementById("StartScreen"); 
+				element.parentNode.removeChild(element);
+				addScoreTime();
+
+				// Start
+
+				startTime = Date.now();
+				animate();
+
+
+			}
+
+			function addEndScreen () {
+				var div1 = document.createElement('div');
+				div1.classList.add("overlay");
+				div1.id = "EndScreen";
+				div1.innerHTML = '<div class="instructions">'+reasonEnd+'<br />Final Score: '+score+'</div><div class="bounce">Bounce 3D</div><div align="center"><a type="button" href="#0" class="bttn" id="strtnew" >Start New Game</a></div>';
+				document.body.appendChild(div1);
+				document.getElementById('strtnew').onclick = function() {
+    				window.location.reload();
+				}
+			}
+
+			function addScoreTime () {
+				var div2 = document.createElement('div');
+				div2.classList.add("overlayscore");
+				div2.id = "scoretime";
+				div2.innerHTML = '<div id ="score" style="width: auto; float:left; height:auto; background-color: #000;color: #FFF;opacity: 1; margin:5%">Score: '+score+'</div><div id ="time" style="width: auto; float:right; height:auto; background-color: #000;color: #FFF;opacity: 1; margin:5%">Time: '+ parseInt(time) +'s</div>';
+				document.body.appendChild(div2);
+
+			}
+
+			function updateScoreTime () {
+				document.getElementById('score').innerHTML = 'Score: '+score;
+				document.getElementById('time').innerHTML = 'Time: '+parseInt(time) + "s";
+			}
+
+			function checkTime () {
+				if(time >=30){
+					object.position.y = object.position.y - 0.02;
+					var myElem = document.getElementById('EndScreen');
+					if (myElem === null){
+						reasonEnd = "You ran out of Time :(";
+						addEndScreen();
+					}
+				}
+			}
+
+			init();
+			addStartScreen();
+
+		</script>
+
+	</body>
+</html>
