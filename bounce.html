@@ -20,7 +20,7 @@
 		<script src="js/KeyBoard.js"></script>
 		<script>
 
-			var camera, scene, renderer, startTime, object, score = 0, noOfDiamonds = 20, noOfMines = 20,reasonEnd, time =0;
+			var camera, scene, renderer, startTime, object, score = 0, noOfDiamonds = 20, noOfMines = 20,reasonEnd, time =0, maxTimeinSec=30;
 
 			var diamonds = [];
 
@@ -29,18 +29,19 @@
 			//Velocity in x, y and z directions
 			var velx = 0 , vely = 0, velz = 0, outOfBounds = false;
 
+
+			//Initialize the environment for game
 			function init() {
 
+				// Camera
 				camera = new THREE.PerspectiveCamera(
 						50, window.innerWidth / window.innerHeight, 0.25, 16 );
-
 				camera.position.set( 0, 3, 10);
 
+				//Scene
 				scene = new THREE.Scene();
-				//scene.fog = new THREE.Fog( 0x72645b, 2, 15 );
 				
 				// Lights
-
 				scene.add( new THREE.AmbientLight( 0x505050 ) );
 
 				var spotLight = new THREE.SpotLight( 0xffffff );
@@ -53,11 +54,6 @@
 				spotLight.shadow.mapSize.width = 1024;
 				spotLight.shadow.mapSize.height = 1024;
 				scene.add( spotLight );
-
-				// var pointLight = new THREE.PointLight( 0xffffff, 1, 200 );
-				// pointLight.position = camera.position;
-				// pointLight.castShadow = true;
-				// scene.add(pointLight);
 
 				var dirLight = new THREE.DirectionalLight( 0x55505a, 1 );
 				dirLight.position.set( 0, 3, 0 );
@@ -74,22 +70,15 @@
 				dirLight.shadow.mapSize.height = 1024;
 				scene.add( dirLight );
 
-				// Geometry
-
-				var material = new THREE.MeshPhongMaterial( {
-						color: 0xbd2031,
-						shininess: 100,
-						side: THREE.DoubleSide
-
-					} ),
-
+				// Add ball Object
+				var material = new THREE.MeshPhongMaterial( { color: 0xbd2031,shininess: 100,side: THREE.DoubleSide } ), 
 					geometry = new THREE.SphereBufferGeometry( 0.2, 32, 32 );
-
 				object = new THREE.Mesh( geometry, material );
 				object.castShadow = true;
 				scene.add( object );
 				object.position.y = 0.2;
 
+				//Add Ground Plane
 				var ground = new THREE.Mesh(
 						new THREE.PlaneBufferGeometry( 9, 9, 1, 1 ),
 						new THREE.MeshPhongMaterial( {
@@ -98,6 +87,7 @@
 				ground.receiveShadow = true;
 				scene.add( ground );
 
+				//Add Diamonds
 				for(i=0; i<noOfDiamonds;i++){
 					var diamond =  new THREE.Mesh(
 							new THREE.OctahedronGeometry(0.1,0),
@@ -112,6 +102,7 @@
 					scene.add( diamond );
 				}
 
+				//Add Mines
 				for(i=0; i<noOfMines;i++){
 					var mine =  new THREE.Mesh(
 							new THREE.ConeBufferGeometry( 0.1,0.1, 32 ),
@@ -128,7 +119,6 @@
 
 
 				// Renderer
-
 				renderer = new THREE.WebGLRenderer();
 				renderer.shadowMap.enabled = true;
 				renderer.setPixelRatio( window.devicePixelRatio );
@@ -137,13 +127,13 @@
 				document.body.appendChild( renderer.domElement );
 
 				// Controls
-
 				var controls = new THREE.OrbitControls( camera, renderer.domElement );
 				controls.target.set( 0, 1, 0 );
 				controls.update();
 
 			}
 
+			//Move camera with window size
 			function onWindowResize() {
 
 				camera.aspect = window.innerWidth / window.innerHeight;
@@ -153,6 +143,7 @@
 
 			}
 
+			//Animation recursive function
 			function animate() {
 
 				var currentTime = Date.now();
@@ -175,6 +166,7 @@
 
 			}
 
+			//Out of bounds - fall
 			function fall() {
 				object.position.y = object.position.y - 0.02;
 				var myElem = document.getElementById('EndScreen');
@@ -184,6 +176,7 @@
 				}
 			}
 
+			//Ball Motion
 			function move() {
 
 				object.position.x = object.position.x + velx;
@@ -253,16 +246,10 @@
 				if(Math.abs(object.position.x) > 4.5 || Math.abs(object.position.z) > 4.5)
 				{
 					outOfBounds = true;
-					outOfBound();
 				}
 			}
 
-			function outOfBound () {
-
-				console.log("outOfBounds");
-
-			}
-
+			//Check ball collision with mine and diamonds
 			function checkCollision () {
 				for(i=0; i < diamonds.length; i++){
 					if(diamonds[i].position.distanceTo(object.position) <= 0.3){
@@ -273,7 +260,7 @@
 				}
 
 				for(i=0; i < mines.length; i++){
-					if(mines[i].position.distanceTo(object.position) <= 0.3){
+					if(mines[i].position.distanceTo(object.position) <= 0.25){
 						object.position.y = object.position.y - 0.02;
 						var myElem = document.getElementById('EndScreen');
 						if (myElem === null){
@@ -285,6 +272,7 @@
 				
 			}
 
+			//Start Screen
 			function addStartScreen () {
 				var div = document.createElement('div');
 				div.classList.add("overlay");
@@ -310,6 +298,8 @@
 
 			}
 
+
+			//End Screen
 			function addEndScreen () {
 				var div1 = document.createElement('div');
 				div1.classList.add("overlay");
@@ -321,6 +311,7 @@
 				}
 			}
 
+			// Add Score and Time to gameplay
 			function addScoreTime () {
 				var div2 = document.createElement('div');
 				div2.classList.add("overlayscore");
@@ -330,13 +321,15 @@
 
 			}
 
+			// Update Score and Time
 			function updateScoreTime () {
 				document.getElementById('score').innerHTML = 'Score: '+score;
 				document.getElementById('time').innerHTML = 'Time: '+parseInt(time) + "s";
 			}
 
+			//Check if time is Over
 			function checkTime () {
-				if(time >=30){
+				if(time >=maxTimeinSec){
 					object.position.y = object.position.y - 0.02;
 					var myElem = document.getElementById('EndScreen');
 					if (myElem === null){
